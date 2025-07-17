@@ -1,0 +1,5 @@
+verctor_store/
+docs/
+test/
+__pycache__/
+.env

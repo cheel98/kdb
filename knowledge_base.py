@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from langchain_community.embeddings import DashScopeEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Tongyi
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate

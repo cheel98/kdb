@@ -3,10 +3,10 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any
 
-from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader, Docx2txtLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
 from dotenv import load_dotenv
 import dashscope
@@ -38,28 +38,69 @@ class KnowledgeBaseBuilder:
             length_function=len,
         )
         
+    def load_single_file(self, file_path: Path) -> List[Document]:
+        """根据文件类型加载单个文件"""
+        documents = []
+        file_extension = file_path.suffix.lower()
+        
+        try:
+            if file_extension == '.md':
+                loader = TextLoader(str(file_path), encoding='utf-8')
+                docs = loader.load()
+                for doc in docs:
+                    doc.metadata['type'] = 'markdown'
+            elif file_extension == '.txt':
+                loader = TextLoader(str(file_path), encoding='utf-8')
+                docs = loader.load()
+                for doc in docs:
+                    doc.metadata['type'] = 'text'
+            elif file_extension == '.pdf':
+                loader = PyPDFLoader(str(file_path))
+                docs = loader.load()
+                for doc in docs:
+                    doc.metadata['type'] = 'pdf'
+            elif file_extension in ['.docx', '.doc']:
+                loader = Docx2txtLoader(str(file_path))
+                docs = loader.load()
+                for doc in docs:
+                    doc.metadata['type'] = 'docx'
+            else:
+                logger.warning(f"不支持的文件格式: {file_extension}")
+                return []
+            
+            # 为所有文档添加统一的元数据
+            for doc in docs:
+                relative_path = file_path.relative_to(self.docs_path)
+                doc.metadata['source'] = str(relative_path)
+                doc.metadata['file_name'] = file_path.name
+                doc.metadata['file_size'] = file_path.stat().st_size
+            
+            documents.extend(docs)
+            
+        except Exception as e:
+            logger.error(f"加载文件 {file_path} 时发生错误: {str(e)}")
+        
+        return documents
+    
     def load_documents(self) -> List[Document]:
-        """加载docs目录下的所有markdown文档"""
+        """加载docs目录下的所有支持的文档"""
         logger.info(f"开始加载文档，路径: {self.docs_path}")
         
-        # 使用DirectoryLoader加载markdown文件
-        loader = DirectoryLoader(
-            str(self.docs_path),
-            glob="**/*.md",
-            loader_cls=TextLoader,
-            loader_kwargs={'encoding': 'utf-8'}
-        )
+        if not self.docs_path.exists():
+            logger.warning(f"文档目录不存在: {self.docs_path}")
+            return []
         
-        documents = loader.load()
+        documents = []
+        supported_extensions = {'.md', '.txt', '.pdf', '.docx', '.doc'}
+        
+        # 递归遍历所有支持的文件
+        for file_path in self.docs_path.rglob('*'):
+            if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
+                logger.info(f"加载文件: {file_path}")
+                file_docs = self.load_single_file(file_path)
+                documents.extend(file_docs)
+        
         logger.info(f"成功加载 {len(documents)} 个文档")
-        
-        # 为每个文档添加元数据
-        for doc in documents:
-            # 获取相对路径作为source
-            relative_path = Path(doc.metadata['source']).relative_to(self.docs_path)
-            doc.metadata['source'] = str(relative_path)
-            doc.metadata['type'] = 'markdown'
-            
         return documents
     
     def split_documents(self, documents: List[Document]) -> List[Document]:
