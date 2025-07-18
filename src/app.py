@@ -2,6 +2,10 @@ import streamlit as st
 import os
 import sys
 from pathlib import Path
+import io
+from docx import Document
+import PyPDF2
+import pdfplumber
 
 # 添加项目根目录到Python路径以导入config模块
 project_root = Path(__file__).parent.parent
@@ -126,6 +130,76 @@ def main():
         
         st.divider()
         
+        # 文档上传功能
+        st.header("📤 文档上传")
+        st.markdown("支持格式：MD, TXT, DOC, DOCX, PDF")
+        
+        # 文件上传区域
+        uploaded_files = st.file_uploader(
+            "选择要上传的文档文件",
+            type=['md', 'txt', 'doc', 'docx', 'pdf'],
+            accept_multiple_files=True,
+            help="支持同时上传多个文件"
+        )
+        
+        if uploaded_files:
+            st.success(f"已选择 {len(uploaded_files)} 个文件")
+            
+            # 上传按钮
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("📤 上传文档", type="primary"):
+                    upload_success = upload_documents_advanced(uploaded_files, config)
+                    if upload_success:
+                        st.success("文档上传成功！")
+                        st.info("请点击重建知识库以包含新文档")
+            
+            with col2:
+                if st.button("🔨 上传并重建"):
+                    upload_success = upload_documents_advanced(uploaded_files, config)
+                    if upload_success:
+                        st.success("文档上传成功！")
+                        if build_knowledge_base():
+                            st.success("知识库重建完成！")
+                            st.rerun()
+        
+        st.divider()
+        
+        # 文档管理区域
+        with st.expander("📁 文档管理", expanded=False):
+            docs_path = Path(config.document.docs_path)
+            if docs_path.exists():
+                doc_files = list(docs_path.rglob("*.md")) + list(docs_path.rglob("*.txt"))
+                
+                if doc_files:
+                    st.write(f"当前知识库包含 {len(doc_files)} 个文档")
+                    
+                    # 创建文档列表
+                    for doc_file in sorted(doc_files)[:5]:  # 只显示前5个
+                        relative_path = doc_file.relative_to(docs_path)
+                        file_size = doc_file.stat().st_size
+                        
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.text(f"📄 {relative_path}")
+                        with col2:
+                            if st.button("🗑️", key=f"delete_{doc_file}", help="删除文档"):
+                                try:
+                                    doc_file.unlink()
+                                    st.success(f"已删除 {relative_path}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"删除失败: {str(e)}")
+                    
+                    if len(doc_files) > 5:
+                        st.info(f"还有 {len(doc_files) - 5} 个文档...")
+                else:
+                    st.info("知识库中暂无文档")
+            else:
+                st.warning(f"文档目录不存在: {docs_path}")
+        
+        st.divider()
+        
         # 知识库统计信息
         if st.session_state.kb_loaded and st.session_state.kb:
             st.header("📊 统计信息")
@@ -237,6 +311,76 @@ def main():
                         
                 except Exception as e:
                     st.error(f"搜索时发生错误: {str(e)}")
+
+def extract_text_from_file(uploaded_file):
+    """从不同格式的文件中提取文本内容"""
+    file_extension = uploaded_file.name.split('.')[-1].lower()
+    
+    try:
+        if file_extension in ['md', 'txt']:
+            # 处理文本文件
+            return uploaded_file.read().decode('utf-8')
+        
+        elif file_extension == 'pdf':
+            # 处理PDF文件
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+            return text
+        
+        elif file_extension in ['doc', 'docx']:
+            # 处理Word文档
+            doc = Document(io.BytesIO(uploaded_file.read()))
+            text = ""
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+            return text
+        
+        else:
+            raise ValueError(f"不支持的文件格式: {file_extension}")
+            
+    except Exception as e:
+        raise Exception(f"提取文本失败: {str(e)}")
+
+def upload_documents_advanced(uploaded_files, config):
+    """上传并处理多种格式的文档到docs目录"""
+    try:
+        docs_path = Path(config.document.docs_path)
+        docs_path.mkdir(parents=True, exist_ok=True)
+        
+        for uploaded_file in uploaded_files:
+            try:
+                # 提取文本内容
+                text_content = extract_text_from_file(uploaded_file)
+                
+                # 生成markdown文件名
+                base_name = uploaded_file.name.rsplit('.', 1)[0]
+                md_filename = f"{base_name}.md"
+                file_path = docs_path / md_filename
+                
+                # 检查文件是否已存在
+                if file_path.exists():
+                    st.warning(f"文件 {md_filename} 已存在，将被覆盖")
+                
+                # 创建markdown格式的内容
+                markdown_content = f"# {base_name}\n\n{text_content}"
+                
+                # 写入文件
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+                
+                st.success(f"✅ {uploaded_file.name} 已转换并保存为 {md_filename}")
+                
+            except Exception as e:
+                st.error(f"处理文件 {uploaded_file.name} 时发生错误: {str(e)}")
+                continue
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"上传文档时发生错误: {str(e)}")
+        return False
 
 if __name__ == "__main__":
     main()

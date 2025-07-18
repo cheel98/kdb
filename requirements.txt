@@ -7,3 +7,8 @@ tiktoken
 python-dotenv
 streamlit
 markdown
+python-docx
+PyPDF2
+pdfplumber
+unstructured[local-inference]
+python-magic-bin
