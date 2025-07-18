@@ -1,14 +1,22 @@
 import streamlit as st
 import os
+import sys
 from pathlib import Path
-from dotenv import load_dotenv
-import dashscope
 
+# 添加项目根目录到Python路径以导入config模块
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# 添加src目录到Python路径以导入其他模块
+src_path = Path(__file__).parent
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from config.config import get_config, reload_config
+import dashscope
 from knowledge_base import KnowledgeBase
 from build_knowledge_base import KnowledgeBaseBuilder
-
-# 加载环境变量
-load_dotenv()
 
 # 页面配置
 st.set_page_config(
@@ -56,23 +64,41 @@ def build_knowledge_base():
 
 def main():
     st.title("📚 本地知识库系统")
-    st.markdown("基于LangChain构建的本地文档知识库")
+    st.markdown("基于LangChain和通义千问构建的本地文档知识库")
+    
+    # 获取配置
+    try:
+        config = get_config()
+    except Exception as e:
+        st.error(f"配置加载失败: {e}")
+        return
     
     # 侧边栏
     with st.sidebar:
         st.header("⚙️ 系统设置")
         
+        # 显示当前配置信息
+        with st.expander("📋 当前配置", expanded=False):
+            st.text(f"模型: {config.dashscope.model_name}")
+            st.text(f"嵌入模型: {config.dashscope.embedding_model}")
+            st.text(f"文档路径: {config.document.docs_path}")
+            st.text(f"向量存储: {config.vector_store.store_path}")
+            st.text(f"分块大小: {config.vector_store.chunk_size}")
+        
         # API密钥设置
         api_key = st.text_input(
             "DashScope API Key", 
-            value=os.getenv('DASHSCOPE_API_KEY', ''),
+            value=config.dashscope.api_key,
             type="password",
             help="请输入您的DashScope API密钥"
         )
         
-        if api_key:
+        if api_key and api_key != config.dashscope.api_key:
             os.environ['DASHSCOPE_API_KEY'] = api_key
             dashscope.api_key = api_key
+            # 重新加载配置
+            reload_config()
+            config = get_config()
         
         st.divider()
         
@@ -80,7 +106,7 @@ def main():
         st.header("📖 知识库管理")
         
         # 检查向量存储是否存在
-        vector_store_path = Path("./vector_store")
+        vector_store_path = Path(config.vector_store.store_path)
         vector_store_exists = vector_store_path.exists()
         
         if vector_store_exists:
@@ -127,7 +153,7 @@ def main():
         # 问题输入
         question = st.text_input(
             "请输入您的问题：",
-            placeholder="例如：什么是共识算法？",
+            placeholder="",
             key="question_input"
         )
         
@@ -169,8 +195,10 @@ def main():
                         st.markdown("**参考文档：**")
                         for j, source in enumerate(chat['sources']):
                             st.markdown(f"{j+1}. 📄 {source['source']}")
-                            with st.expander(f"查看内容片段 {j+1}"):
-                                st.text(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
+                            # 使用details而不是嵌套expander
+                            with st.container():
+                                if st.button(f"查看内容片段 {j+1}", key=f"source_{i}_{j}"):
+                                    st.text(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
     
     with tab2:
         st.header("文档搜索")

@@ -1,40 +1,49 @@
 import os
+import sys
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
+
+# 添加项目根目录到Python路径以导入config模块
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.schema import Document
-from dotenv import load_dotenv
+from config.config import get_config
 import dashscope
-
-# 加载环境变量
-load_dotenv()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class KnowledgeBaseBuilder:
-    def __init__(self, docs_path: str = "./docs", vector_store_path: str = "./vector_store"):
-        self.docs_path = Path(docs_path)
-        self.vector_store_path = Path(vector_store_path)
+    """知识库构建器"""
+    
+    def __init__(self, docs_path: str = None, vector_store_path: str = None):
+        # 获取配置
+        self.config = get_config()
+        
+        # 使用配置或默认值
+        self.docs_path = Path(docs_path or self.config.document.docs_path)
+        self.vector_store_path = Path(vector_store_path or self.config.vector_store.store_path)
         
         # 设置DashScope API密钥
-        dashscope.api_key = os.getenv('DASHSCOPE_API_KEY')
+        dashscope.api_key = self.config.dashscope.api_key
         
         # 使用通义千问的embeddings
         self.embeddings = DashScopeEmbeddings(
-            model="text-embedding-v1",
-            dashscope_api_key=os.getenv('DASHSCOPE_API_KEY')
+            model=self.config.dashscope.embedding_model,
+            dashscope_api_key=self.config.dashscope.api_key
         )
         
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=self.config.vector_store.chunk_size,
+            chunk_overlap=self.config.vector_store.chunk_overlap,
             length_function=len,
         )
         
@@ -119,16 +128,24 @@ class KnowledgeBaseBuilder:
 
 def main():
     """主函数"""
-    # 检查通义千问API密钥
-    if not os.getenv('DASHSCOPE_API_KEY'):
-        logger.error("请设置DASHSCOPE_API_KEY环境变量")
-        return
-    
-    # 创建知识库构建器
-    builder = KnowledgeBaseBuilder()
-    
-    # 构建知识库
-    builder.build()
+    try:
+        # 获取配置并验证
+        config = get_config()
+        if not config.validate():
+            logger.error("配置验证失败，请检查环境变量设置")
+            return
+        
+        logger.info(f"使用配置: {config}")
+        
+        # 创建知识库构建器
+        builder = KnowledgeBaseBuilder()
+        
+        # 构建知识库
+        builder.build()
+        
+    except Exception as e:
+        logger.error(f"构建知识库失败: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

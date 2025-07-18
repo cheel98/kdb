@@ -6,14 +6,22 @@
 这个脚本提供了一个简单的命令行界面来管理和使用知识库系统。
 """
 
-import os
-import sys
 import subprocess
+import sys
+import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-# 加载环境变量
-load_dotenv()
+# 添加项目根目录到Python路径以导入config模块
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# 添加src目录到Python路径以便正确导入模块
+src_path = Path(__file__).parent.parent
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from config.config import get_config, validate_config
 
 def check_requirements():
     """检查依赖是否已安装"""
@@ -21,7 +29,7 @@ def check_requirements():
         import langchain
         import streamlit
         import faiss
-        import openai
+        # 移除openai导入，项目使用的是通义千问
         return True
     except ImportError as e:
         print(f"❌ 缺少依赖包: {e}")
@@ -30,14 +38,18 @@ def check_requirements():
 
 def check_api_key():
     """检查API密钥"""
-    api_key = os.getenv('DASHSCOPE_API_KEY')
-    if not api_key:
-        print("❌ 未找到DashScope API密钥")
-        print("请设置环境变量 DASHSCOPE_API_KEY 或在 .env 文件中配置")
+    try:
+        config = get_config()
+        if not config.dashscope.api_key:
+            print("❌ 未找到DashScope API密钥")
+            print("请设置环境变量 DASHSCOPE_API_KEY 或在 .env 文件中配置")
+            return False
+        
+        print(f"✅ API密钥已配置 (前4位: {config.dashscope.api_key[:4]}...)")
+        return True
+    except Exception as e:
+        print(f"❌ 配置检查失败: {e}")
         return False
-    
-    print(f"✅ API密钥已配置 (前4位: {api_key[:4]}...)")
-    return True
 
 def build_knowledge_base():
     """构建知识库"""
