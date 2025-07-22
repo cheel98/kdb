@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  knowledge-base-rpc:
+    build: .
+    container_name: knowledge-base-rpc
+    ports:
+      - "50051:50051"
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - PYTHONPATH=/app
+    volumes:
+      - ./vector_store:/app/vector_store
+      - ./resources:/app/resources
+      - ./feedback.db:/app/feedback.db
+      - ./config:/app/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from src.grpc_client import KnowledgeServiceClient; client = KnowledgeServiceClient('localhost:50051'); exit(0 if client.health_check() else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - knowledge-net
+
+  # 可选：添加一个简单的Web界面用于测试
+  knowledge-web-ui:
+    build: .
+    container_name: knowledge-web-ui
+    ports:
+      - "8502:8502"
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - PYTHONPATH=/app
+    volumes:
+      - ./vector_store:/app/vector_store
+      - ./resources:/app/resources
+      - ./feedback.db:/app/feedback.db
+      - ./config:/app/config
+    command: ["python", "run_enhanced_app.py"]
+    depends_on:
+      - knowledge-base-rpc
+    restart: unless-stopped
+    networks:
+      - knowledge-net
+
+networks:
+  knowledge-net:
+    driver: bridge
+
+volumes:
+  vector_store:
+  resources:
+  feedback_data:

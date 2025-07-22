@@ -2,7 +2,8 @@ langchain
 langchain-community
 dashscope
 chromadb
-faiss-cpu
+faiss-cpu>=1.8.0
+numpy<2.0.0
 tiktoken
 python-dotenv
 streamlit
@@ -12,3 +13,7 @@ PyPDF2
 pdfplumber
 unstructured[local-inference]
 python-magic-bin
+# gRPC dependencies
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.25.0

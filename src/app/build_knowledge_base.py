@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # 添加项目根目录到Python路径以导入config模块
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 

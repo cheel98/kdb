@@ -10,20 +10,21 @@ import json
 from datetime import datetime
 
 # 添加项目根目录到Python路径以导入config模块
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # 添加src目录到Python路径以导入其他模块
-src_path = Path(__file__).parent
+src_path = Path(__file__).parent.parent
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 from config.config import get_config, reload_config
 import dashscope
-from enhanced_knowledge_base import EnhancedKnowledgeBase
-from build_knowledge_base import KnowledgeBaseBuilder
-from feedback_system import FeedbackRecord
+# 修改为绝对导入路径
+from src.app.enhanced_knowledge_base import EnhancedKnowledgeBase
+from src.app.build_knowledge_base import KnowledgeBaseBuilder
+from src.app.feedback_system import FeedbackRecord
 
 # 页面配置
 st.set_page_config(

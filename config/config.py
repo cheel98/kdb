@@ -91,6 +91,27 @@ class StreamlitConfig:
             raise ValueError("端口号必须在 1-65535 之间")
 
 @dataclass
+class GrpcConfig:
+    """gRPC服务配置"""
+    host: str = "0.0.0.0"
+    port: int = 50051
+    max_workers: int = 10
+    enable_reflection: bool = False
+    enable_health_check: bool = True
+    
+    def __post_init__(self):
+        """验证配置"""
+        if self.port < 1 or self.port > 65535:
+            raise ValueError("gRPC端口号必须在 1-65535 之间")
+        
+        if self.max_workers <= 0:
+            raise ValueError("max_workers 必须大于 0")
+        
+        # 验证主机地址格式
+        if not self.host:
+            raise ValueError("gRPC主机地址不能为空")
+
+@dataclass
 class LoggingConfig:
     """日志配置"""
     level: str = "INFO"
@@ -154,6 +175,15 @@ class Config:
                 debug=os.getenv('STREAMLIT_DEBUG', 'false').lower() == 'true'
             )
             
+            # gRPC配置
+            self.grpc = GrpcConfig(
+                host=os.getenv('GRPC_HOST', '0.0.0.0'),
+                port=int(os.getenv('GRPC_PORT', '50051')),
+                max_workers=int(os.getenv('GRPC_MAX_WORKERS', '10')),
+                enable_reflection=os.getenv('GRPC_ENABLE_REFLECTION', 'false').lower() == 'true',
+                enable_health_check=os.getenv('GRPC_ENABLE_HEALTH_CHECK', 'true').lower() == 'true'
+            )
+            
             # 日志配置
             self.logging = LoggingConfig(
                 level=os.getenv('LOG_LEVEL', 'INFO'),
@@ -214,6 +244,8 @@ class Config:
 - 向量存储: {self.vector_store.store_path}
 - 分块大小: {self.vector_store.chunk_size}
 - 搜索数量: {self.vector_store.search_k}
+- gRPC服务: {self.grpc.host}:{self.grpc.port}
+- gRPC工作线程: {self.grpc.max_workers}
 - 日志级别: {self.logging.level}"""
 
 # 全局配置实例

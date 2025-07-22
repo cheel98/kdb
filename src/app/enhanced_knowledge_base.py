@@ -12,12 +12,13 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
 # 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from knowledge_base import KnowledgeBase
-from feedback_system import FeedbackLearningSystem, FeedbackRecord
+# 修改相对导入为绝对导入
+from src.app.knowledge_base import KnowledgeBase
+from src.app.feedback_system import FeedbackLearningSystem, FeedbackRecord
 from config.config import get_config
 
 # 配置日志
@@ -195,6 +196,27 @@ class EnhancedKnowledgeBase(KnowledgeBase):
         
         return enhanced_stats
     
+    def search_documents(self, query: str, k: int = None) -> List[Dict[str, Any]]:
+        """
+        搜索文档（重写父类方法以添加反馈信息）
+        
+        Args:
+            query: 搜索查询
+            k: 返回结果数量
+            
+        Returns:
+            搜索结果列表
+        """
+        # 调用父类的搜索方法
+        base_results = super().search_documents(query, k)
+        
+        # 为结果添加评分信息（转换similarity_score为score）
+        for result in base_results:
+            if 'similarity_score' in result:
+                result['score'] = 1.0 - result['similarity_score']  # 转换为相似度评分
+        
+        return base_results
+    
     def search_with_feedback_context(self, query: str, k: int = None) -> List[Dict[str, Any]]:
         """
         搜索文档，并包含反馈上下文信息
@@ -215,9 +237,12 @@ class EnhancedKnowledgeBase(KnowledgeBase):
             enhanced_result = result.copy()
             
             # 检查是否有相关的反馈改进
-            similar_feedback = self.feedback_system.get_similar_questions_feedback(
-                query, self.similarity_threshold
-            )
+            try:
+                similar_feedback = self.feedback_system.get_similar_questions_feedback(
+                    query, self.similarity_threshold
+                )
+            except:
+                similar_feedback = []
             
             enhanced_result["feedback_context"] = {
                 "has_similar_feedback": len(similar_feedback) > 0,

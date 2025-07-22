@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package knowledge_service;
+
+// 知识库服务定义
+service KnowledgeService {
+  // 聊天接口
+  rpc Chat(ChatRequest) returns (ChatResponse);
+  
+  // 反馈接口
+  rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
+  
+  // 获取反馈历史
+  rpc GetFeedbackHistory(FeedbackHistoryRequest) returns (FeedbackHistoryResponse);
+  
+  // 获取系统统计信息
+  rpc GetStats(StatsRequest) returns (StatsResponse);
+  
+  // 搜索文档
+  rpc SearchDocuments(SearchRequest) returns (SearchResponse);
+  
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// 聊天请求
+message ChatRequest {
+  string question = 1;
+  bool use_feedback = 2; // 是否使用反馈优化
+}
+
+// 聊天响应
+message ChatResponse {
+  string question = 1;
+  string original_answer = 2;
+  string final_answer = 3;
+  repeated SourceDocument source_documents = 4;
+  FeedbackInfo feedback_info = 5;
+  bool success = 6;
+  string error_message = 7;
+}
+
+// 来源文档
+message SourceDocument {
+  string content = 1;
+  string source = 2;
+  map<string, string> metadata = 3;
+}
+
+// 反馈信息
+message FeedbackInfo {
+  bool is_improved = 1;
+  double confidence_score = 2;
+  int32 feedback_count = 3;
+  repeated SimilarQuestion similar_questions = 4;
+}
+
+// 相似问题
+message SimilarQuestion {
+  string question = 1;
+  double similarity_score = 2;
+  string feedback_type = 3;
+}
+
+// 反馈请求
+message FeedbackRequest {
+  string question = 1;
+  string original_answer = 2;
+  string feedback_type = 3; // positive, negative, corrected
+  string corrected_answer = 4; // 可选，仅当feedback_type为corrected时
+  string feedback_text = 5; // 可选，补充说明
+  repeated SourceDocument source_documents = 6;
+}
+
+// 反馈响应
+message FeedbackResponse {
+  int32 feedback_id = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+// 反馈历史请求
+message FeedbackHistoryRequest {
+  string question = 1;
+}
+
+// 反馈历史响应
+message FeedbackHistoryResponse {
+  repeated FeedbackRecord records = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+// 反馈记录
+message FeedbackRecord {
+  int32 id = 1;
+  string question = 2;
+  string original_answer = 3;
+  string user_feedback = 4;
+  string corrected_answer = 5;
+  string feedback_text = 6;
+  string timestamp = 7;
+  string question_hash = 8;
+  repeated SourceDocument source_documents = 9;
+}
+
+// 统计信息请求
+message StatsRequest {
+}
+
+// 统计信息响应
+message StatsResponse {
+  KnowledgeBaseStats knowledge_base = 1;
+  FeedbackStats feedback_system = 2;
+  SystemConfig system_config = 3;
+  bool success = 4;
+  string error_message = 5;
+}
+
+// 知识库统计
+message KnowledgeBaseStats {
+  int32 total_documents = 1;
+  int32 total_chunks = 2;
+  string vector_store_path = 3;
+}
+
+// 反馈统计
+message FeedbackStats {
+  int32 total_feedback = 1;
+  int32 positive_feedback = 2;
+  int32 negative_feedback = 3;
+  int32 corrected_feedback = 4;
+  int32 improved_answers = 5;
+  double satisfaction_rate = 6;
+}
+
+// 系统配置
+message SystemConfig {
+  bool feedback_learning_enabled = 1;
+  double confidence_threshold = 2;
+  double similarity_threshold = 3;
+  string feedback_db_path = 4;
+}
+
+// 搜索请求
+message SearchRequest {
+  string query = 1;
+  int32 k = 2; // 返回结果数量
+}
+
+// 搜索响应
+message SearchResponse {
+  repeated SearchResult results = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+// 搜索结果
+message SearchResult {
+  string content = 1;
+  double score = 2;
+  map<string, string> metadata = 3;
+}
+
+// 健康检查请求
+message HealthCheckRequest {
+}
+
+// 健康检查响应
+message HealthCheckResponse {
+  bool healthy = 1;
+  string status = 2;
+  string version = 3;
+}
