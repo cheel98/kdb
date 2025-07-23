@@ -114,11 +114,11 @@ class GrpcConfig:
 @dataclass
 class LoggingConfig:
     """日志配置"""
-    level: str = "INFO"
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    file_path: Optional[str] = None
-    max_file_size: int = 10 * 1024 * 1024  # 10MB
-    backup_count: int = 5
+    level: str = os.getenv('LOG_LEVEL', 'INFO')
+    format: str = os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_path: Optional[str] = os.getenv('LOG_FILE_PATH')
+    max_file_size: int = int(os.getenv('LOG_MAX_FILE_SIZE', str(10 * 1024 * 1024)))  # 10MB
+    backup_count: int = int(os.getenv('LOG_BACKUP_COUNT', '5'))
     
     def __post_init__(self):
         """验证配置"""
