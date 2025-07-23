@@ -3,7 +3,8 @@ langchain
 langchain-community
 dashscope
 chromadb
-faiss-cpu>=1.8.0
+# 使用CPU版本的faiss，适合无GPU环境
+faiss-cpu>=1.8.0,<1.9.0
 numpy<2.0.0
 tiktoken
 python-dotenv
@@ -12,7 +13,8 @@ python-dotenv
 python-docx
 PyPDF2
 pdfplumber
-unstructured[local-inference]
+# 移除local-inference选项，减少对GPU的依赖
+unstructured
 # 根据操作系统选择合适的python-magic包
 python-magic; platform_system != "Windows"
 python-magic-bin; platform_system == "Windows"
