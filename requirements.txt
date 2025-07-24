@@ -31,3 +31,9 @@ protobuf>=4.25.0
 # Web proxy dependencies
 flask>=2.0.0
 flask-cors>=3.0.0
+
+# Database dependencies
+mysqlclient>=2.1.0
+SQLAlchemy>=2.0.0
+pymysql>=1.0.0
+cryptography>=40.0.0

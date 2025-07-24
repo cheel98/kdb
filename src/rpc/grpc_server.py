@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 import json
+import uuid
 from concurrent import futures
 from pathlib import Path
 from typing import Dict, Any, List
@@ -26,21 +27,23 @@ if str(src_path) not in sys.path:
 
 # 导入生成的gRPC代码
 try:
-    from grpc_generated import knowledge_service_pb2
-    from grpc_generated import knowledge_service_pb2_grpc
+    from generated import knowledge_service_pb2
+    from generated import knowledge_service_pb2_grpc
 except ImportError:
     # 如果在src目录下运行，尝试从上级目录导入
     sys.path.insert(0, str(project_root))
-    from src.rpc.grpc_generated import knowledge_service_pb2
-    from src.rpc.grpc_generated import knowledge_service_pb2_grpc
+    from src.rpc.generated import knowledge_service_pb2
+    from src.rpc.generated import knowledge_service_pb2_grpc
 
 # 导入业务逻辑模块
 try:
     from enhanced_knowledge_base import EnhancedKnowledgeBase
     from feedback_system import FeedbackRecord
+    from conversation_service_impl import ConversationServiceImpl
 except ImportError:
     from src.app.enhanced_knowledge_base import EnhancedKnowledgeBase
     from src.app.feedback_system import FeedbackRecord
+    from src.rpc.conversation_service_impl import ConversationServiceImpl
 
 try:
     from config.config import get_config
@@ -58,11 +61,12 @@ logger = logging.getLogger('kdb')
 class KnowledgeServiceImpl(knowledge_service_pb2_grpc.KnowledgeServiceServicer):
     """知识库服务实现"""
     
-    def __init__(self):
+    def __init__(self, knowledge_base=None):
         """初始化服务"""
-        self.kb = None
+        self.kb = knowledge_base
         self.config = None
         self.version = "1.0.0"
+        self.conversation_service = None
         self._initialize_knowledge_base()
     
     def _initialize_knowledge_base(self):
@@ -382,14 +386,53 @@ class KnowledgeServiceImpl(knowledge_service_pb2_grpc.KnowledgeServiceServicer):
                 status="error",
                 version=self.version
             )
+            
+    # 多轮对话相关接口
+    def ChatConversation(self, request, context):
+        """多轮对话聊天接口"""
+        return self.conversation_service.chat_conversation(request, context)
+        
+    def CreateConversation(self, request, context):
+        """创建对话接口"""
+        return self.conversation_service.create_conversation(request, context)
+        
+    def GetConversationHistory(self, request, context):
+        """获取对话历史接口"""
+        return self.conversation_service.get_conversation_history(request, context)
+        
+    def ListConversations(self, request, context):
+        """列出对话接口"""
+        return self.conversation_service.list_conversations(request, context)
+        
+    def UpdateConversation(self, request, context):
+        """更新对话接口"""
+        return self.conversation_service.update_conversation(request, context)
+        
+    def DeleteConversation(self, request, context):
+        """删除对话接口"""
+        return self.conversation_service.delete_conversation(request, context)
+        
+    def VerifyEmail(self, request, context):
+        """验证邮箱接口"""
+        return self.conversation_service.verify_email(request)
+        
+    def ChatWithEmailVerification(self, request, context):
+        """带邮箱验证的对话聊天接口"""
+        return self.conversation_service.chat_with_email_verification(request)
 
 def serve(port=50051, max_workers=10):
     """启动gRPC服务器"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
     
-    # 添加服务
+    # 初始化知识库
+    kb = EnhancedKnowledgeBase()
+    
+    # 注册知识库服务
+    knowledge_service = KnowledgeServiceImpl(kb)
+    # 初始化对话服务
+    knowledge_service.conversation_service = ConversationServiceImpl(kb)
     knowledge_service_pb2_grpc.add_KnowledgeServiceServicer_to_server(
-        KnowledgeServiceImpl(), server
+        knowledge_service, server
     )
     
     # 监听端口

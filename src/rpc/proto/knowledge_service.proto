@@ -7,6 +7,24 @@ service KnowledgeService {
   // 聊天接口
   rpc Chat(ChatRequest) returns (ChatResponse);
   
+  // 多轮对话聊天接口
+  rpc ChatConversation(ConversationChatRequest) returns (ChatResponse);
+  
+  // 创建新对话
+  rpc CreateConversation(CreateConversationRequest) returns (ConversationResponse);
+  
+  // 获取对话历史
+  rpc GetConversationHistory(ConversationHistoryRequest) returns (ConversationHistoryResponse);
+  
+  // 列出对话
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+  
+  // 更新对话
+  rpc UpdateConversation(UpdateConversationRequest) returns (ConversationResponse);
+  
+  // 删除对话
+  rpc DeleteConversation(DeleteConversationRequest) returns (DeleteConversationResponse);
+  
   // 反馈接口
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
   
@@ -21,12 +39,102 @@ service KnowledgeService {
   
   // 健康检查
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // 验证邮箱（用于对话保存）
+  rpc VerifyEmail(EmailVerificationRequest) returns (EmailVerificationResponse);
+  
+  // 带邮箱验证的对话聊天
+  rpc ChatWithEmailVerification(EmailChatRequest) returns (ChatResponse);
 }
 
 // 聊天请求
 message ChatRequest {
   string question = 1;
   bool use_feedback = 2; // 是否使用反馈优化
+}
+
+// 多轮对话聊天请求
+message ConversationChatRequest {
+  string question = 1;  // 用户问题
+  string conversation_id = 2;  // 对话ID
+  bool use_feedback = 3;  // 是否使用反馈
+  bool use_reranking = 4;  // 是否使用重排序
+  int32 top_k = 5;  // 返回的文档数量
+  float similarity_threshold = 6;  // 相似度阈值
+  SystemConfig system_config = 7;  // 系统配置
+  int32 max_history_turns = 8;  // 最大历史轮次
+}
+
+// 创建对话请求
+message CreateConversationRequest {
+  string title = 1;  // 对话标题
+  string user_id = 2;  // 用户ID
+}
+
+// 对话响应
+message ConversationResponse {
+  string conversation_id = 1;  // 对话ID
+  string title = 2;  // 对话标题
+  string user_id = 3;  // 用户ID
+  string created_at = 4;  // 创建时间
+  string updated_at = 5;  // 更新时间
+  bool is_archived = 6;  // 是否归档
+}
+
+// 对话历史请求
+message ConversationHistoryRequest {
+  string conversation_id = 1;  // 对话ID
+  int32 limit = 2;  // 限制数量
+  int32 offset = 3;  // 偏移量
+}
+
+// 消息
+message Message {
+  string message_id = 1;  // 消息ID
+  string conversation_id = 2;  // 对话ID
+  string content = 3;  // 消息内容
+  string role = 4;  // 角色（user/assistant）
+  string created_at = 5;  // 创建时间
+  repeated string source_documents = 6;  // 源文档
+}
+
+// 对话历史响应
+message ConversationHistoryResponse {
+  string conversation_id = 1;  // 对话ID
+  string title = 2;  // 对话标题
+  repeated Message messages = 3;  // 消息列表
+  int32 total_count = 4;  // 总消息数
+}
+
+// 列出对话请求
+message ListConversationsRequest {
+  string user_id = 1;  // 用户ID
+  int32 limit = 2;  // 限制数量
+  int32 offset = 3;  // 偏移量
+  bool include_archived = 4;  // 是否包含已归档
+}
+
+// 列出对话响应
+message ListConversationsResponse {
+  repeated ConversationResponse conversations = 1;  // 对话列表
+  int32 total_count = 2;  // 总对话数
+}
+
+// 更新对话请求
+message UpdateConversationRequest {
+  string conversation_id = 1;  // 对话ID
+  string title = 2;  // 对话标题
+  bool is_archived = 3;  // 是否归档
+}
+
+// 删除对话请求
+message DeleteConversationRequest {
+  string conversation_id = 1;  // 对话ID
+}
+
+// 删除对话响应
+message DeleteConversationResponse {
+  bool success = 1;  // 是否成功
 }
 
 // 聊天响应
@@ -171,4 +279,31 @@ message HealthCheckResponse {
   bool healthy = 1;
   string status = 2;
   string version = 3;
+}
+
+// 邮箱验证请求
+message EmailVerificationRequest {
+  string email = 1;  // 邮箱地址
+}
+
+// 邮箱验证响应
+message EmailVerificationResponse {
+  bool is_valid = 1;  // 邮箱是否有效
+  string user_id = 2;  // 用户ID（基于邮箱生成）
+  bool success = 3;  // 操作是否成功
+  string error_message = 4;  // 错误信息
+}
+
+// 带邮箱验证的聊天请求
+message EmailChatRequest {
+  string email = 1;  // 邮箱地址
+  string question = 2;  // 用户问题
+  string conversation_id = 3;  // 对话ID（可选，如果为空则创建新对话）
+  bool use_feedback = 4;  // 是否使用反馈
+  bool use_reranking = 5;  // 是否使用重排序
+  int32 top_k = 6;  // 返回的文档数量
+  float similarity_threshold = 7;  // 相似度阈值
+  SystemConfig system_config = 8;  // 系统配置
+  int32 max_history_turns = 9;  // 最大历史轮次
+  string conversation_title = 10;  // 对话标题（创建新对话时使用）
 }

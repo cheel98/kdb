@@ -190,6 +190,71 @@ class KnowledgeServiceClient:
             logger.error(f"获取统计信息失败: {e}")
             return None
     
+    def verify_email(self, email):
+        """验证邮箱"""
+        try:
+            request = knowledge_service_pb2.EmailVerificationRequest(
+                email=email
+            )
+            
+            response = self.stub.VerifyEmail(request)
+            
+            if response.success:
+                print(f"✅ 邮箱验证成功")
+                print(f"  邮箱: {email}")
+                print(f"  有效性: {'有效' if response.is_valid else '无效'}")
+                print(f"  用户ID: {response.user_id}")
+                return response
+            else:
+                print(f"❌ 邮箱验证失败: {response.error_message}")
+                return None
+                
+        except grpc.RpcError as e:
+            logger.error(f"邮箱验证请求失败: {e}")
+            return None
+    
+    def chat_with_email(self, email, question, conversation_id=None, 
+                       conversation_title=None, use_feedback=True, 
+                       use_reranking=True, top_k=5, similarity_threshold=0.7,
+                       max_history_turns=10):
+        """带邮箱验证的对话聊天"""
+        try:
+            request = knowledge_service_pb2.EmailChatRequest(
+                email=email,
+                question=question,
+                conversation_id=conversation_id or "",
+                conversation_title=conversation_title or "",
+                use_feedback=use_feedback,
+                use_reranking=use_reranking,
+                top_k=top_k,
+                similarity_threshold=similarity_threshold,
+                max_history_turns=max_history_turns
+            )
+            
+            response = self.stub.ChatWithEmailVerification(request)
+            
+            if response.success:
+                print(f"\n💬 问题: {response.question}")
+                print(f"📧 邮箱: {email}")
+                print(f"📝 答案: {response.final_answer}")
+                
+                if response.feedback_info and 'conversation_id' in response.feedback_info:
+                    print(f"🆔 对话ID: {response.feedback_info['conversation_id']}")
+                
+                if response.source_documents:
+                    print(f"\n📚 参考文档 ({len(response.source_documents)} 个):")
+                    for i, doc in enumerate(response.source_documents[:3], 1):
+                        print(f"  {i}. {doc.source}: {doc.content[:100]}...")
+                
+                return response
+            else:
+                print(f"❌ 聊天失败: {response.error_message}")
+                return None
+                
+        except grpc.RpcError as e:
+            logger.error(f"邮箱聊天请求失败: {e}")
+            return None
+
     def search_documents(self, query, k=5):
         """搜索文档"""
         try:
@@ -233,7 +298,37 @@ def interactive_demo():
         # 获取统计信息
         client.get_stats()
         
-        # 交互式聊天
+        # 选择聊天模式
+        print("\n💬 选择聊天模式:")
+        print("1. 🔓 普通聊天 (不保存对话)")
+        print("2. 📧 邮箱验证聊天 (保存对话到数据库)")
+        
+        mode_choice = input("请选择模式 (1-2): ").strip()
+        
+        email = None
+        conversation_id = None
+        
+        if mode_choice == '2':
+            # 邮箱验证模式
+            while True:
+                email = input("📧 请输入邮箱地址: ").strip()
+                if not email:
+                    continue
+                
+                # 验证邮箱
+                email_response = client.verify_email(email)
+                if email_response and email_response.is_valid:
+                    break
+                else:
+                    print("❌ 邮箱格式无效，请重新输入")
+            
+            # 询问是否创建新对话
+            create_new = input("\n🆕 是否创建新对话? (y/n): ").strip().lower()
+            if create_new == 'y':
+                conversation_title = input("📝 请输入对话标题 (可选): ").strip()
+            else:
+                conversation_id = input("🆔 请输入现有对话ID (可选): ").strip()
+        
         print("\n💬 开始聊天 (输入 'quit' 退出):")
         print("-" * 30)
         
@@ -247,8 +342,21 @@ def interactive_demo():
                 if not question:
                     continue
                 
-                # 发送聊天请求
-                response = client.chat(question)
+                # 根据模式发送聊天请求
+                if mode_choice == '2' and email:
+                    # 邮箱验证聊天
+                    response = client.chat_with_email(
+                        email=email,
+                        question=question,
+                        conversation_id=conversation_id,
+                        conversation_title=conversation_title if 'conversation_title' in locals() else None
+                    )
+                    # 更新对话ID以便后续使用
+                    if response and response.feedback_info and 'conversation_id' in response.feedback_info:
+                        conversation_id = response.feedback_info['conversation_id']
+                else:
+                    # 普通聊天
+                    response = client.chat(question)
                 
                 if response:
                     # 询问反馈
@@ -294,6 +402,8 @@ def main():
     parser.add_argument('--health', action='store_true', help='仅进行健康检查')
     parser.add_argument('--stats', action='store_true', help='仅获取统计信息')
     parser.add_argument('--question', help='发送单个问题')
+    parser.add_argument('--email', help='邮箱地址 (用于验证和保存对话)')
+    parser.add_argument('--verify-email', help='验证指定邮箱地址')
     
     args = parser.parse_args()
     
@@ -304,8 +414,15 @@ def main():
             client.health_check()
         elif args.stats:
             client.get_stats()
+        elif args.verify_email:
+            client.verify_email(args.verify_email)
         elif args.question:
-            client.chat(args.question)
+            if args.email:
+                # 带邮箱验证的聊天
+                client.chat_with_email(args.email, args.question)
+            else:
+                # 普通聊天
+                client.chat(args.question)
         elif args.demo:
             interactive_demo()
         else:

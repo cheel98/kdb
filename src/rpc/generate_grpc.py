@@ -21,7 +21,7 @@ def generate_grpc_code():
     # 获取当前脚本目录
     current_dir = Path(__file__).parent
     proto_dir = current_dir / "proto"
-    output_dir = current_dir / "grpc_generated"
+    output_dir = current_dir / "generated"
     
     # 创建输出目录
     output_dir.mkdir(parents=True, exist_ok=True)
