@@ -390,27 +390,27 @@ class KnowledgeServiceImpl(knowledge_service_pb2_grpc.KnowledgeServiceServicer):
     # 多轮对话相关接口
     def ChatConversation(self, request, context):
         """多轮对话聊天接口"""
-        return self.conversation_service.chat_conversation(request, context)
+        return self.conversation_service.chat_conversation(request)
         
     def CreateConversation(self, request, context):
         """创建对话接口"""
-        return self.conversation_service.create_conversation(request, context)
+        return self.conversation_service.create_conversation(request)
         
     def GetConversationHistory(self, request, context):
         """获取对话历史接口"""
-        return self.conversation_service.get_conversation_history(request, context)
+        return self.conversation_service.get_conversation_history(request)
         
     def ListConversations(self, request, context):
         """列出对话接口"""
-        return self.conversation_service.list_conversations(request, context)
+        return self.conversation_service.list_conversations(request)
         
     def UpdateConversation(self, request, context):
         """更新对话接口"""
-        return self.conversation_service.update_conversation(request, context)
+        return self.conversation_service.update_conversation(request)
         
     def DeleteConversation(self, request, context):
         """删除对话接口"""
-        return self.conversation_service.delete_conversation(request, context)
+        return self.conversation_service.delete_conversation(request)
         
     def VerifyEmail(self, request, context):
         """验证邮箱接口"""
