@@ -89,15 +89,13 @@ def start_rpc_server(host='0.0.0.0', port=50051, workers=10):
         print(f"❌ 启动RPC服务器失败: {e}")
         return False
 
-def start_web_ui(app_type="standard", port=8501):
+def start_web_ui(app_type="standard",host='localhost', port=8501):
     """启动Web UI"""
     if app_type == "enhanced":
         app_path = project_root / "src" / "app" / "enhanced_app.py"
-        ui_port = 8502  # 增强版使用不同端口
     else:
         app_path = project_root / "src" / "app" / "app.py"
-        ui_port = port
-    
+    ui_port = port
     if not app_path.exists():
         print(f"❌ 找不到应用文件: {app_path}")
         return False
@@ -108,6 +106,7 @@ def start_web_ui(app_type="standard", port=8501):
         "-m", "streamlit", 
         "run", 
         str(app_path),
+        f"--server.address={host}",
         f"--server.port={ui_port}",
         "--server.headless=false",
         "--browser.gatherUsageStats=false"
@@ -116,7 +115,7 @@ def start_web_ui(app_type="standard", port=8501):
     app_type_name = "增强版" if app_type == "enhanced" else "标准版"
     print(f"\n🚀 启动{app_type_name}知识库Web UI...")
     print(f"📂 应用路径: {app_path}")
-    print(f"🌐 访问地址: http://localhost:{ui_port}")
+    print(f"🌐 访问地址: http://{host}:{ui_port}")
     
     try:
         # 启动应用（创建子进程）
@@ -185,16 +184,20 @@ def start_grpc_web_proxy(host='0.0.0.0', port=8000, grpc_server='localhost:50051
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description='知识库系统统一入口')
-    parser.add_argument('--rpc-port', type=int, default=50051, help='RPC服务端口 (默认: 50051)')
-    parser.add_argument('--rpc-workers', type=int, default=10, help='RPC服务工作线程数 (默认: 10)')
-    parser.add_argument('--rpc-host', default='0.0.0.0', help='RPC服务监听地址 (默认: 0.0.0.0)')
+    config = get_config()
+
+    parser.add_argument('--rpc-port', type=int, default=config.grpc.port, help='RPC服务端口 (默认: 50051)')
+    parser.add_argument('--rpc-workers', type=int, default=config.grpc.max_workers, help='RPC服务工作线程数 (默认: 10)')
+    parser.add_argument('--rpc-host', default=config.grpc.host, help='RPC服务监听地址 (默认: 0.0.0.0)')
     parser.add_argument('--web-ui', action='store_true', help='启动Web UI界面')
     parser.add_argument('--enhanced', action='store_true', help='使用增强版Web UI')
-    parser.add_argument('--web-port', type=int, default=8501, help='Web UI端口 (默认: 8501)')
+    parser.add_argument('--web-port', type=int, default=config.streamlit.port, help='Web UI端口 (默认: 8501)')
+    parser.add_argument('--web-host', default=config.streamlit.host, help='Web UI监听地址 (默认: localhost)')
     parser.add_argument('--web-proxy', action='store_true', help='启动gRPC-Web代理服务器')
-    parser.add_argument('--proxy-port', type=int, default=8000, help='gRPC-Web代理服务器端口 (默认: 8000)')
-    parser.add_argument('--proxy-host', default='0.0.0.0', help='gRPC-Web代理服务器监听地址 (默认: 0.0.0.0)')
+    parser.add_argument('--proxy-port', type=int, default=config.grpc_proxy.port, help='gRPC-Web代理服务器端口 (默认: 50052)')
+    parser.add_argument('--proxy-host', default=config.grpc_proxy.host, help='gRPC-Web代理服务器监听地址 (默认: 0.0.0.0)')
     
+
     args = parser.parse_args()
     
     # 检查API密钥
@@ -214,7 +217,7 @@ def main():
     
     # 启动gRPC-Web代理服务器（如果需要）
     if args.web_proxy:
-        grpc_server = f"localhost:{args.rpc_port}"
+        grpc_server = f"{args.rpc_host}:{args.rpc_port}"
         proxy_thread = start_grpc_web_proxy(
             host=args.proxy_host,
             port=args.proxy_port,
@@ -227,7 +230,7 @@ def main():
     # 启动Web UI（如果需要）
     if args.web_ui:
         app_type = "enhanced" if args.enhanced else "standard"
-        web_process = start_web_ui(app_type, args.web_port)
+        web_process = start_web_ui(app_type, args.web_host, args.web_port)
         if not web_process:
             print("❌ Web UI启动失败")
             return 1

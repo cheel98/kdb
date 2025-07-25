@@ -33,6 +33,7 @@ class ConversationServiceImpl:
         self.kb = knowledge_base
         self.conversation_manager = ConversationManager()
         logger.info("对话服务初始化完成")
+        
 
     def chat_conversation(self, request: ConversationChatRequest) -> ChatResponse:
         """多轮对话聊天
@@ -66,12 +67,7 @@ class ConversationServiceImpl:
             # 调用知识库回答问题
             result = self.kb.ask_question_with_feedback(
                 question=request.question,
-                context=context_str,
-                use_feedback=request.use_feedback,
-                use_reranking=request.use_reranking,
-                top_k=request.top_k,
-                similarity_threshold=request.similarity_threshold,
-                system_config=self._convert_system_config(request.system_config) if request.HasField("system_config") else None
+                use_feedback=request.use_feedback
             )
             
             # 添加助手回复到对话

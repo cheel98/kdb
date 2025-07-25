@@ -110,6 +110,19 @@ class GrpcConfig:
         # 验证主机地址格式
         if not self.host:
             raise ValueError("gRPC主机地址不能为空")
+@dataclass
+class GrpcProxyConfig:
+    """gRPC代理配置"""
+    host: str = "0.0.0.0"
+    port: int = 50052
+
+    def __post_init__(self):
+        """验证配置"""
+        if self.port < 1 or self.port > 65535:
+            raise ValueError("gRPC端口号必须在 1-65535 之间")
+        
+        if not self.host:
+            raise ValueError("gRPC主机地址不能为空")
 
 @dataclass
 class LoggingConfig:
@@ -182,6 +195,10 @@ class Config:
                 max_workers=int(os.getenv('GRPC_MAX_WORKERS', '10')),
                 enable_reflection=os.getenv('GRPC_ENABLE_REFLECTION', 'false').lower() == 'true',
                 enable_health_check=os.getenv('GRPC_ENABLE_HEALTH_CHECK', 'true').lower() == 'true'
+            )
+            self.grpc_proxy = GrpcProxyConfig(
+                host=os.getenv('GRPC_PROXY_HOST', '0.0.0.0'),
+                port=int(os.getenv('GRPC_PROXY_PORT', '50052'))
             )
             
             # 日志配置

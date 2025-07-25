@@ -66,7 +66,7 @@ class KnowledgeServiceImpl(knowledge_service_pb2_grpc.KnowledgeServiceServicer):
         self.kb = knowledge_base
         self.config = None
         self.version = "1.0.0"
-        self.conversation_service = None
+        self.conversation_service = ConversationServiceImpl(knowledge_base)
         self._initialize_knowledge_base()
     
     def _initialize_knowledge_base(self):
