@@ -66,8 +66,10 @@ class KnowledgeServiceImpl(knowledge_service_pb2_grpc.KnowledgeServiceServicer):
         self.kb = knowledge_base
         self.config = None
         self.version = "1.0.0"
-        self.conversation_service = ConversationServiceImpl(knowledge_base)
         self._initialize_knowledge_base()
+        logger.info(f"QAchain: {self.kb.qa_chain}")
+        self.conversation_service = ConversationServiceImpl(self.kb)
+        logger.info(f"chats,QAchain: {self.conversation_service.kb.qa_chain}")
     
     def _initialize_knowledge_base(self):
         """初始化知识库"""
@@ -430,7 +432,6 @@ def serve(port=50051, max_workers=10):
     # 注册知识库服务
     knowledge_service = KnowledgeServiceImpl(kb)
     # 初始化对话服务
-    knowledge_service.conversation_service = ConversationServiceImpl(kb)
     knowledge_service_pb2_grpc.add_KnowledgeServiceServicer_to_server(
         knowledge_service, server
     )

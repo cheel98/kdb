@@ -5,8 +5,9 @@ import hashlib
 from typing import List, Dict, Any, Optional
 
 from src.db.conversation_manager import ConversationManager
+from src.app.knowledge_base import KnowledgeBase
 from src.rpc.generated.knowledge_service_pb2 import (
-    ConversationChatRequest, ChatResponse, 
+    ConversationChatRequest, ChatResponse, SourceDocument,FeedbackInfo,
     CreateConversationRequest, ConversationResponse,
     ConversationHistoryRequest, ConversationHistoryResponse,
     ListConversationsRequest, ListConversationsResponse,
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 class ConversationServiceImpl:
     """对话服务实现"""
 
-    def __init__(self, knowledge_base):
+    def __init__(self, knowledge_base: KnowledgeBase):
         """初始化对话服务
 
         Args:
@@ -50,8 +51,6 @@ class ConversationServiceImpl:
                 request.conversation_id, 
                 request.max_history_turns
             )
-            
-            # 构建上下文字符串
             context_str = ""
             for msg in context:
                 prefix = "用户: " if msg['role'] == 'user' else "助手: "
@@ -69,23 +68,35 @@ class ConversationServiceImpl:
                 question=request.question,
                 use_feedback=request.use_feedback
             )
-            
             # 添加助手回复到对话
             self.conversation_manager.add_message(
                 request.conversation_id,
-                result.answer,
+                result["final_answer"],
                 'assistant',
-                [doc.metadata.get('source', '') for doc in result.source_documents]
+                [doc["metadata"].get('source', '') for doc in result["source_documents"]]
             )
             
             # 构建响应
+            # 转换反馈信息
+            feedback_info_data = result.get("feedback_info", {})
+            similar_questions = []
+            for sq in feedback_info_data.get("similar_questions", []):
+                similar_q = knowledge_service_pb2.SimilarQuestion(
+                    question=sq.get("question", ""),
+                    similarity_score=sq.get("similarity_score", 0.0),
+                    feedback_type=sq.get("feedback_type", "")
+                )
+                similar_questions.append(similar_q)
+            
             response = ChatResponse(
-                answer=result.answer,
-                source_documents=[doc.metadata.get('source', '') for doc in result.source_documents],
-                feedback_info={
-                    'question_id': str(uuid.uuid4()),
-                    'conversation_id': request.conversation_id
-                }
+                final_answer=result["final_answer"],
+                source_documents=[SourceDocument(source=doc["metadata"].get('source', '')) for doc in result["source_documents"]],
+                feedback_info= FeedbackInfo(
+                    is_improved=feedback_info_data.get("is_improved", False),
+                    confidence_score=feedback_info_data.get("confidence_score", 0.0),
+                    feedback_count=feedback_info_data.get("feedback_count", 0),
+                    similar_questions=similar_questions
+                )
             )
             
             return response
@@ -385,12 +396,6 @@ class ConversationServiceImpl:
             
             # 执行对话聊天
             response = self.chat_conversation(chat_request)
-            
-            # 更新反馈信息中的对话ID
-            if response.feedback_info:
-                response.feedback_info['conversation_id'] = conversation_id
-                response.feedback_info['user_email'] = request.email
-            
             return response
             
         except Exception as e:

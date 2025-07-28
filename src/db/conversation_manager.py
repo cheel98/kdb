@@ -162,17 +162,21 @@ class ConversationManager:
 
             # 创建消息
             message = Message(conversation_id=conversation_id, content=content, role=role)
-            session.add(message)
 
             # 添加源文档
             if source_documents:
+                # 通过 relationship 添加 source, SQLAlchemy 会自动处理外键
                 for doc in source_documents:
-                    source = MessageSource(message_id=message.message_id, source_document=doc)
-                    session.add(source)
+                    message.sources.append(MessageSource(source_document=doc))
+
+            session.add(message)
 
             # 更新对话的更新时间
             conversation.updated_at = datetime.utcnow()
             session.commit()
+
+            # commit 后 message.message_id 才会有值
+            logger.info(f"创建消息: {message.message_id}")
 
             return message.to_dict()
         except Exception as e:
@@ -259,13 +263,11 @@ class ConversationManager:
             query = session.query(Conversation).filter_by(user_id=user_id)
             if not include_archived:
                 query = query.filter_by(is_archived=False)
-
             # 获取总数
             total_count = query.count()
-
+            query = query.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit)
             # 获取对话列表
-            conversations = query.order_by(Conversation.updated_at.desc()).offset(offset).limit(limit).all()
-
+            conversations = query.all()
             # 转换为字典
             return [conversation.to_dict() for conversation in conversations], total_count
         except Exception as e:
