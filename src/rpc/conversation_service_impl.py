@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from src.db.conversation_manager import ConversationManager
 from src.app.knowledge_base import KnowledgeBase
 from src.rpc.generated.knowledge_service_pb2 import (
-    ConversationChatRequest, ChatResponse, SourceDocument,FeedbackInfo,
+    ConversationChatRequest, ChatResponse, SourceDocument,FeedbackInfo,SimilarQuestion,
     CreateConversationRequest, ConversationResponse,
     ConversationHistoryRequest, ConversationHistoryResponse,
     ListConversationsRequest, ListConversationsResponse,
@@ -81,7 +81,7 @@ class ConversationServiceImpl:
             feedback_info_data = result.get("feedback_info", {})
             similar_questions = []
             for sq in feedback_info_data.get("similar_questions", []):
-                similar_q = knowledge_service_pb2.SimilarQuestion(
+                similar_q = SimilarQuestion(
                     question=sq.get("question", ""),
                     similarity_score=sq.get("similarity_score", 0.0),
                     feedback_type=sq.get("feedback_type", "")
